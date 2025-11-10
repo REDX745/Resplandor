@@ -78,3 +78,28 @@ Supervisa el comportamiento del script frente a controles defensivos (firewall, 
 DevOps / Automatización y Documentación
 Carlos Giovanni Reyes Medina
 Responsable del mantenimiento del repositorio en GitHub, la estructura de carpetas (/src, /docs, /proposals, /examples), la documentación técnica (README.md) y la integración del flujo de trabajo.
+
+Segundo entregable – MVP funcional parcial
+
+Objetivo:
+Implementar al menos una tarea funcional del proyecto con resultados verificables.
+
+Estado actual:
+
+Se completó una tarea funcional en /src (auditoría de logs).
+
+Se añadieron ejemplos de salida y logs en formato JSON lines en /examples.
+
+Script ejecutable disponible: run_tarea1.py.
+
+Documentación técnica básica en /docs/entregable_2.md.
+
+README actualizado con el estado del proyecto.
+
+Evidencia reproducible:
+
+Archivos generados en /examples.
+
+Logs estructurados en .json.
+
+Ejecución controlada mediante script.
