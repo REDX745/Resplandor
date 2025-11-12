@@ -103,3 +103,15 @@ Archivos generados en /examples.
 Logs estructurados en .json.
 
 Ejecución controlada mediante script.
+
+Tercer entregable del Proyecto Final PIA – Integración parcial y plan de IA
+
+Se integraron dos tareas del proyecto: auditoría de logs y revisión de procesos/red, con flujo técnico entre módulos en Python.
+
+Se agregó un script principal que conecta ambas funciones y genera logs estructurados en /examples/logs.jsonl.
+
+El plan de IA se documentó en /docs/ai_plan.md y la plantilla inicial de prompt en /prompts/.
+
+El proyecto ahora incluye orquestación básica y documentación del avance en /docs/entregable_3.md.
+
+Se actualizó este README con el estado actual del proyecto.
