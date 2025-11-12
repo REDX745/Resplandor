@@ -1,0 +1,512 @@
+#!/usr/bin/env python3
+"""
+Resplandor - versión Python (educativa / segura)
+
+Replica la estructura del Resplandor.ps1 pero sin acciones forenses peligrosas.
+- Lee eventos (si pywin32 disponible), o crea eventos de ejemplo.
+- Lista procesos y conexiones de red (psutil).
+- Consulta AbuseIPDB (requests) si se proporciona API key.
+- Placeholder para captura RAM (no ejecuta winpmem).
+- Genera CSV/HTML y logs JSONL.
+"""
+
+import os
+import sys
+import argparse
+import datetime
+import time
+import json
+import socket
+import subprocess
+from pathlib import Path
+
+# librerías adicionales
+try:
+    import psutil
+except Exception as e:
+    print("ERROR: psutil no está instalado. Ejecuta: pip install -r requirements.txt")
+    raise
+
+try:
+    import pandas as pd
+except Exception as e:
+    print("ERROR: pandas no está instalado. Ejecuta: pip install -r requirements.txt")
+    raise
+
+try:
+    import requests
+except Exception:
+    requests = None  # abuso opcional
+
+# opcional: lectura de eventos Windows con pywin32
+HAS_WIN32 = False
+try:
+    import win32evtlog  # type: ignore
+    HAS_WIN32 = True
+except Exception:
+    HAS_WIN32 = False
+
+# ------------------ utilidades ------------------
+
+def now_ts():
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+def iso_ts():
+    return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+def new_output_root(root_dir=None):
+    """
+    Crea carpeta Resplandor_{timestamp} en root_dir (o Desktop si None).
+    Crea subcarpetas: eventos, procesos, reputacion
+    Devuelve Path al root.
+    """
+    if root_dir:
+        base = Path(root_dir).expanduser()
+        base.mkdir(parents=True, exist_ok=True)
+    else:
+        home = Path.home()
+        desktop = home / "Desktop"
+        base = desktop if desktop.exists() else home
+    name = f"Resplandor_{now_ts()}"
+    root = base / name
+    root.mkdir(parents=True, exist_ok=True)
+    for s in ("eventos", "procesos", "reputacion"):
+        (root / s).mkdir(parents=True, exist_ok=True)
+    return root
+
+def write_jsonl(logfile_path, obj):
+    with open(logfile_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+def is_private_ip(ip):
+    try:
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        a,b,c,d = [int(x) for x in parts]
+        if a == 10: return True
+        if a == 172 and 16 <= b <= 31: return True
+        if a == 192 and b == 168: return True
+        return False
+    except Exception:
+        return False
+
+# ------------------ Tarea 1: eventos ------------------
+
+def get_event_evidence(desde, logs=None, event_ids=None, output_root=None, formats=("CSV","HTML"), only_suspicious=False, jsonl_log=None):
+    """
+    Intenta leer eventos de Windows si pywin32 está disponible.
+    Si no, genera eventos de ejemplo.
+    Guarda CSV y HTML según formats.
+    Retorna dict con OutputFolder, CountByLog, Paths
+    """
+    root = new_output_root(output_root)
+    out_eventos = root / "eventos"
+    suspicious_ids = {4624,4625,4672,4688,1102,7045,4720,4728,4732,4738}
+
+    results = {"OutputFolder": str(root), "CountByLog": {}, "Paths": {}}
+    logs = logs or ["Security","System","Application"]
+
+    for logname in logs:
+        step = {"timestamp": iso_ts(), "step": "leer_logs", "module": "events", "params": {"log": logname, "desde": str(desde)}, "level":"info"}
+        try:
+            events_list = []
+            if HAS_WIN32 and os.name == "nt":
+                server = "localhost"
+                hand = win32evtlog.OpenEventLog(server, logname)
+                flags = win32evtlog.EVENTLOG_BACKWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
+                # filtro simple por fecha: leemos y filtramos en Python
+                evt = True
+                while True:
+                    events = win32evtlog.ReadEventLog(hand, flags, 0)
+                    if not events:
+                        break
+                    for e in events:
+                        try:
+                            etime = e.TimeGenerated.Format()  # string
+                        except Exception:
+                            etime = ""
+                        # Notar: por rendimiento no intentamos mapear todo
+                        ev = {
+                            "TimeCreated": etime,
+                            "Id": getattr(e, "EventID", None),
+                            "LevelDisplayName": getattr(e, "EventType", None),
+                            "ProviderName": getattr(e, "SourceName", None),
+                            "Message": str(getattr(e, "StringInserts", "") or "")
+                        }
+                        events_list.append(ev)
+                # filtrar por fecha 'desde' si posible (simple: keep all)
+            else:
+                # fallback: generar eventos de ejemplo
+                for i in range(1, 6):
+                    events_list.append({
+                        "TimeCreated": (datetime.datetime.now() - datetime.timedelta(hours=i)).isoformat(),
+                        "Id": 4624 if i%2==0 else 1000+i,
+                        "LevelDisplayName": "Information",
+                        "ProviderName": f"ExampleProvider{i}",
+                        "Message": f"Evento de ejemplo {i} en {logname}"
+                    })
+
+            # filtrar por only_suspicious o event_ids
+            if only_suspicious:
+                events_list = [e for e in events_list if e.get("Id") in suspicious_ids]
+            elif event_ids:
+                events_list = [e for e in events_list if e.get("Id") in event_ids]
+
+            results["CountByLog"][logname] = len(events_list)
+
+            df = pd.DataFrame(events_list)
+            ts = now_ts()
+            if "CSV" in formats:
+                csv_path = out_eventos / f"{logname}_{ts}.csv"
+                df.to_csv(csv_path, index=False, encoding="utf-8")
+                results["Paths"][f"{logname}:CSV"] = str(csv_path)
+            if "HTML" in formats:
+                html_path = out_eventos / f"{logname}_{ts}.html"
+                df.to_html(html_path, index=False)
+                results["Paths"][f"{logname}:HTML"] = str(html_path)
+            if "XML" in formats:
+                xml_path = out_eventos / f"{logname}_{ts}.xml"
+                # crear XML simple
+                with open(xml_path, "w", encoding="utf-8") as xf:
+                    xf.write("<events>\n")
+                    for e in events_list:
+                        xf.write("  <event>\n")
+                        for k,v in e.items():
+                            xf.write(f"    <{k}>{str(v)}</{k}>\n")
+                        xf.write("  </event>\n")
+                    xf.write("</events>\n")
+                results["Paths"][f"{logname}:XML"] = str(xml_path)
+
+            write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"export_events", "status":"ok", "message":f"{len(events_list)} eventos escritos para {logname}", "params":{"log":logname}})
+        except Exception as ex:
+            write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"leer_logs", "status":"error", "message":str(ex), "params":{"log":logname}})
+            results["CountByLog"][logname] = 0
+
+    return results
+
+# ------------------ Tarea 2: procesos y red ------------------
+
+def get_process_network_map(output_root=None, jsonl_log=None):
+    root = new_output_root(output_root)
+    out_dir = root / "procesos"
+
+    rows = []
+    try:
+        net_conns = psutil.net_connections(kind='inet')
+    except Exception:
+        net_conns = []
+
+    procs = {}
+    for p in psutil.process_iter(['pid','name','exe','cmdline']):
+        try:
+            info = p.info
+            procs[info['pid']] = info
+        except Exception:
+            continue
+
+    for n in net_conns:
+        if n.laddr:
+            local = f"{n.laddr.ip}:{n.laddr.port}"
+        else:
+            local = ""
+
+        remoto = ""
+        if n.raddr:
+            remoto = f"{n.raddr.ip}:{n.raddr.port}"
+
+        pid = n.pid or 0
+        pinfo = procs.get(pid)
+        ruta = pinfo.get('exe') if pinfo else None
+        cmd = " ".join(pinfo.get('cmdline')) if pinfo and pinfo.get('cmdline') else None
+        proc_name = pinfo.get('name') if pinfo and pinfo.get('name') else "<desconocido>"
+
+        flags = []
+        if ruta:
+            low = ruta.lower()
+            if "appdata" in low and "temp" in low:
+                flags.append("en_temp")
+            if "downloads" in low:
+                flags.append("en_downloads")
+        if n.raddr:
+            if not is_private_ip(n.raddr.ip):
+                flags.append("ip_publica")
+
+        sospechoso = len(flags) >= 2
+
+        rows.append({
+            "PID": pid,
+            "Proceso": proc_name,
+            "Ruta": ruta,
+            "Cmd": cmd,
+            "Local": local,
+            "Remoto": remoto,
+            "Estado": str(n.status),
+            "Sospechoso": sospechoso,
+            "Razones": ",".join(flags)
+        })
+
+    df = pd.DataFrame(rows)
+    ts = now_ts()
+    csv_path = out_dir / f"procesos_red_{ts}.csv"
+    df.to_csv(csv_path, index=False, encoding="utf-8")
+    html_path = out_dir / f"procesos_red_{ts}.html"
+    df.to_html(html_path, index=False)
+
+    write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"proc_net", "status":"ok", "message":f"{len(rows)} filas exportadas", "params":{}})
+
+    return {"OutputFolder": str(root), "CsvPath": str(csv_path), "HtmlPath": str(html_path), "Table": rows}
+
+# ------------------ Tarea 3: Reputacion IP (AbuseIPDB) ------------------
+
+def invoke_abuseip_lookup(api_key, ip_list, output_root=None, jsonl_log=None, max_age_days=365):
+    root = new_output_root(output_root)
+    out_dir = root / "reputacion"
+
+    rows = []
+    headers = {"Key": api_key, "Accept": "application/json"} if api_key and requests else None
+    for ip in sorted(set(ip_list)):
+        if not ip or ip == "0.0.0.0":
+            continue
+        if is_private_ip(ip):
+            continue
+        try:
+            if headers and requests:
+                url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays={max_age_days}&verbose"
+                r = requests.get(url, headers=headers, timeout=10)
+                if r.status_code == 200:
+                    j = r.json()
+                    data = j.get("data", {})
+                    score = data.get("abuseConfidenceScore")
+                    total = data.get("totalReports")
+                    isp = data.get("isp")
+                    country = data.get("countryCode")
+                    hosts = ",".join(data.get("hostnames") or [])
+                    if score is None:
+                        nivel = "desconocido"
+                    elif score >= 75:
+                        nivel = "alto"
+                    elif score >= 40:
+                        nivel = "medio"
+                    elif score >= 10:
+                        nivel = "bajo"
+                    else:
+                        nivel = "minimo"
+                    rows.append({"IP": ip, "Score": score, "Nivel": nivel, "Total": total, "ISP": isp, "Pais": country, "Hosts": hosts})
+                else:
+                    rows.append({"IP": ip, "Score": None, "Nivel": "error_api", "Total": None, "ISP": None, "Pais": None, "Hosts": None})
+            else:
+                # modo offline/ejemplo: generar fila simulada
+                rows.append({"IP": ip, "Score": 0, "Nivel": "minimo", "Total": 0, "ISP": "N/A", "Pais": "ZZ", "Hosts": ""})
+            time.sleep(0.7)  # respetar rate-limit
+        except Exception as ex:
+            rows.append({"IP": ip, "Score": None, "Nivel": "error", "Total": None, "ISP": None, "Pais": None, "Hosts": None})
+            write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"abuseip_lookup", "status":"error", "message":str(ex), "params":{"ip":ip}})
+
+    df = pd.DataFrame(rows)
+    ts = now_ts()
+    csv_path = out_dir / f"abuseip_{ts}.csv"
+    df.to_csv(csv_path, index=False, encoding="utf-8")
+    html_path = out_dir / f"abuseip_{ts}.html"
+    df.to_html(html_path, index=False)
+
+    write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"abuseip_export", "status":"ok", "message":f"{len(rows)} filas exportadas", "params":{}})
+
+    return {"OutputFolder": str(root), "CsvPath": str(csv_path), "HtmlPath": str(html_path), "Table": rows}
+
+# ------------------ Placeholder captura RAM ------------------
+
+def ram_capture_placeholder(tool_path="C:\\Herramientas\\winpmem.exe"):
+    """
+    NO EJECUTA winpmem. Solo informa si detecta el binario y devuelve instrucciones.
+    Tu equipo debe ejecutar la captura real con permisos.
+    """
+    exists = Path(tool_path).exists()
+    if exists:
+        msg = f"WinPmem detectado en {tool_path}. Para capturar RAM ejecuta manualmente con privilegios:\n  {tool_path} -o C:\\Forensics\\RAM_Capture_{now_ts()}.raw -d"
+        return {"status":"tool_found", "message": msg, "tool": tool_path}
+    else:
+        return {"status":"tool_missing", "message": f"No se encontro winpmem en {tool_path}. Colocalo allí o configura la ruta."}
+
+# ------------------ Orquestacion ------------------
+
+def full_run(desde, abuse_key, output_dir=None, capture_ram=False, jsonl_log=None):
+    root = new_output_root(output_dir)
+    write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"start_full_run", "status":"ok", "message":"Inicio ejecución completa", "params":{"desde":str(desde)}})
+
+    ev = get_event_evidence(desde=desde, output_root=root, formats=("CSV","HTML"), only_suspicious=True, jsonl_log=jsonl_log)
+    pr = get_process_network_map(output_root=root, jsonl_log=jsonl_log)
+
+    ips = []
+    for row in pr.get("Table", []):
+        remoto = row.get("Remoto")
+        if remoto:
+            ip = remoto.split(":")[0]
+            if ip:
+                ips.append(ip)
+    ips = sorted(set(ips))
+
+    rep = None
+    if abuse_key and requests:
+        rep = invoke_abuseip_lookup(abuse_key, ips, output_root=root, jsonl_log=jsonl_log)
+    else:
+        rep = invoke_abuseip_lookup(None, ips, output_root=root, jsonl_log=jsonl_log)
+
+    # resumen
+    resumen = root / "Resumen_Forense.txt"
+    with open(resumen, "w", encoding="utf-8") as f:
+        f.write(f"Resplandor - Equipo: {socket.gethostname()}\n")
+        f.write(f"Fecha: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Desde: {desde}\n\n")
+        f.write("== Eventos (sospechosos) ==\n")
+        for k,v in ev.get("CountByLog", {}).items():
+            f.write(f"{k}: {v}\n")
+        f.write("\n== Procesos/Red ==\n")
+        f.write(f"Total filas: {len(pr.get('Table',[]))}\n")
+        f.write(f"Sospechosos: {len([r for r in pr.get('Table',[]) if r.get('Sospechoso')])}\n\n")
+        if rep:
+            f.write("== Reputacion IP ==\n")
+            f.write(f"Consultadas: {len(rep.get('Table',[]))}\n\n")
+        else:
+            f.write("== Reputacion IP omitida: sin clave ==\n\n")
+        f.write("Salidas:\n")
+        f.write(f"  Eventos:   {root / 'eventos'}\n")
+        f.write(f"  Procesos:  {root / 'procesos'}\n")
+        f.write(f"  Reputacion:{root / 'reputacion'}\n")
+
+    write_jsonl(jsonl_log, {"timestamp":iso_ts(), "step":"end_full_run", "status":"ok", "message":"Ejecucion completa finalizada", "params":{"output":str(root)}})
+
+    return {"OutputFolder": str(root), "Eventos": ev, "ProcNet": pr, "Reputacion": rep, "ResumenPath": str(resumen)}
+
+# ------------------ UI (menu) ------------------
+
+MENU = """
+Resplandor - Menu
+1) Ejecucion completa (eventos + procesos/red + AbuseIPDB)
+2) Solo eventos
+3) Solo procesos + red
+4) Solo reputacion de IPs (AbuseIPDB)
+5) Abrir ultima carpeta Resplandor_*
+6) Capturar RAM ahora (placeholder - no ejecuta)
+7) Salir
+"""
+
+def find_last_output_folder():
+    candidates = []
+    desktop = Path.home() / "Desktop"
+    for base in (desktop, Path.home()):
+        if base.exists():
+            for item in base.iterdir():
+                if item.is_dir() and item.name.startswith("Resplandor_"):
+                    candidates.append(item)
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0] if candidates else None
+
+def interactive_mode(args):
+    jsonl_log = None
+    # create a place for jsonl logs in Desktop root
+    root_for_logs = Path(args.salida) if args.salida else (Path.home() / "Desktop")
+    log_file = root_for_logs / f"logs_ejecucion_{now_ts()}.jsonl"
+    jsonl_log = str(log_file)
+    print("Logs JSONL:", jsonl_log)
+
+    while True:
+        print(MENU)
+        opt = input("Selecciona una opcion: ").strip()
+        if opt == "1":
+            key = args.clave_abuse or input("Clave AbuseIPDB (Enter para omitir): ").strip()
+            desde = args.desde
+            res = full_run(desde, key if key else None, output_dir=args.salida, capture_ram=False, jsonl_log=jsonl_log)
+            print("[OK] Salida:", res.get("OutputFolder"))
+            resp = input("Capturar RAM al finalizar? (s/n) ")
+            if resp.lower().startswith("s"):
+                print("NOTA: el script no ejecuta winpmem. Ve la opcion 6 para instrucciones.")
+            input("Enter para continuar...")
+        elif opt == "2":
+            ev = get_event_evidence(desde=args.desde, output_root=args.salida, formats=("CSV","HTML"), only_suspicious=True, jsonl_log=jsonl_log)
+            print("[OK] Eventos ->", ev.get("OutputFolder"))
+            input("Enter para continuar...")
+        elif opt == "3":
+            pr = get_process_network_map(output_root=args.salida, jsonl_log=jsonl_log)
+            print("[OK] Procesos/Red ->", pr.get("OutputFolder"))
+            input("Enter para continuar...")
+        elif opt == "4":
+            key = args.clave_abuse or input("Clave AbuseIPDB (requerida para reputacion; Enter para modo simulado): ").strip()
+            last = find_last_output_folder()
+            ips = []
+            if last and (last / "procesos").exists():
+                # intentar leer ultimo csv
+                cands = sorted((last / "procesos").glob("procesos_red_*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if cands:
+                    latest = cands[0]
+                    try:
+                        df = pd.read_csv(latest)
+                        for idx,row in df.iterrows():
+                            remoto = str(row.get("Remoto",""))
+                            if remoto and ":" in remoto:
+                                ips.append(remoto.split(":")[0])
+                    except Exception:
+                        ips = []
+            if not ips:
+                raw = input("No hay IPs previas; ingresa lista coma-separada: ").strip()
+                ips = [p.strip() for p in raw.split(",") if p.strip()]
+            if ips:
+                rep = invoke_abuseip_lookup(key if key else None, ips, output_root=args.salida, jsonl_log=jsonl_log)
+                print("[OK] Reputacion ->", rep.get("OutputFolder"))
+            else:
+                print("[INFO] No se encontraron IPs para consultar.")
+            input("Enter para continuar...")
+        elif opt == "5":
+            last = find_last_output_folder()
+            if last:
+                print("Ultima carpeta:", last)
+                # intentar abrir en explorer (solo Windows)
+                try:
+                    if sys.platform.startswith("win"):
+                        subprocess.Popen(["explorer", str(last)])
+                except Exception:
+                    pass
+            else:
+                print("[INFO] No se encontro carpeta Resplandor_*")
+            input("Enter para continuar...")
+        elif opt == "6":
+            tool_path = args.winpmem_path or "C:\\Herramientas\\winpmem.exe"
+            info = ram_capture_placeholder(tool_path)
+            print(info["message"])
+            input("Enter para continuar...")
+        elif opt == "7":
+            break
+        else:
+            print("[INFO] Opcion invalida")
+            time.sleep(1)
+
+# ------------------ CLI ------------------
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Resplandor (versión Python segura)")
+    p.add_argument("--auto", action="store_true", help="Run auto (full) mode")
+    p.add_argument("--desde", type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"), default=(datetime.datetime.now() - datetime.timedelta(days=7)), help="Fecha desde (YYYY-MM-DD)")
+    p.add_argument("--clave-abuse", dest="clave_abuse", type=str, default=None, help="API key AbuseIPDB (opcional)")
+    p.add_argument("--salida", type=str, default=None, help="Directorio base de salida (opcional)")
+    p.add_argument("--capturar-ram", action="store_true", help="Intentar captura (placeholder, no ejecuta)")
+    p.add_argument("--winpmem-path", type=str, default=None, help="Ruta a winpmem.exe (si se usa fuera del script)")
+    return p.parse_args()
+
+def main():
+    args = parse_args()
+    # preparar log jsonl en el directorio de salida o Desktop
+    base = Path(args.salida) if args.salida else (Path.home() / "Desktop")
+    base.mkdir(parents=True, exist_ok=True)
+    jsonl_log = str(base / f"logs_ejecucion_{now_ts()}.jsonl")
+
+    if args.auto:
+        res = full_run(args.desde, args.clave_abuse, output_dir=args.salida, capture_ram=args.capturar_ram, jsonl_log=jsonl_log)
+        if args.capturar_ram:
+            print("Nota: el script no ejecuta captura RAM. Usa la opcion 6 para instrucciones.")
+        print("[OK] Listo (modo auto). Carpeta:", res.get("OutputFolder"))
+        return
+
+    interactive_mode(args)
+
+if __name__ == "__main__":
+    main()
