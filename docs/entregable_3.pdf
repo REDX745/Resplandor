@@ -1,0 +1,18 @@
+# Entregable 3 – Integración parcial y plan de IA
+
+ 1. Resumen del avance
+Se completó la integración de dos módulos principales del proyecto Resplandor:
+1. Recolección y análisis de eventos del sistema.
+2. Procesamiento de conexiones de red y reputación IP.
+
+Ambos módulos fueron conectados mediante un script principal (resplandor.py) que orquesta la ejecución y genera reportes en `/examples`.
+
+ 2. Integración técnica
+- Lenguajes utilizados: **Python** y **PowerShell**.
+- El módulo Python recolecta y analiza datos.
+- El módulo PowerShell (opcional) prepara el entorno o ejecuta WinPmem en sistemas Windows.
+- Flujo completo documentado en `/docs/ai_plan.md`.
+
+ 3. Plan de IA
+Se agregó el archivo `/docs/ai_plan.md` y `/prompts/prompt_v1.json` con el diseño inicial del uso de IA para clasificación de eventos.
+
