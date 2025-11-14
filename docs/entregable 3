@@ -1,0 +1,21 @@
+Entregable 3 – Resumen del Avance
+Durante esta etapa del proyecto se integraron las partes que ya estaban desarrolladas y se organizó el flujo general sin agregar funciones nuevas. El objetivo fue dejar lista la estructura del entregable, los directorios requeridos y la documentación correspondiente.
+Se conectaron los módulos principales que ya existían: eventos y procesos/red. Las salidas se organizaron dentro de la carpeta correspondiente y se generaron ejemplos de logs estructurados. También se documentó el avance general del proyecto sin modificar el comportamiento original del código.
+Integración realizada
+Se unieron las funciones que ya estaban hechas, únicamente ordenándolas para que trabajaran dentro de un flujo claro.
+Se creó el archivo de documentación de avance y se añadieron los ejemplos de logs.
+Se actualizó el README agregando la sección del tercer entregable.
+Se organizaron las carpetas según lo solicitado.
+Propuestas discutidas (sin implementar)
+Durante la revisión del equipo se comentaron ideas para mejorar el proyecto más adelante, solo como registro del proceso:
+Agregar una función para abrir la última carpeta generada por Resplandor.
+Ordenar los logs para que todos los módulos usen el mismo formato.
+Documentar mejor los parámetros de entrada del script.
+Crear un verificador rápido del entorno antes de ejecutar el flujo.
+Mantener plantillas simples para futuras mejoras sin afectar el funcionamiento actual.
+Estas propuestas solo se registran como parte del avance; no se implementaron en esta fase.
+Estado del proyecto
+El flujo base ya funciona con los módulos existentes.
+Se generaron ejemplos de logs estructurados.
+La documentación del avance está completa.
+El repositorio quedó organizado para subir evidencia al entregable.
