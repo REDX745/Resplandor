@@ -1,0 +1,55 @@
+Entregable 5 – Repositorio completo y cierre del proyecto
+
+En este entregable se realizó el cierre completo del proyecto, integrando todas las tareas, el flujo técnico final, la parte de IA y la evidencia necesaria. El repositorio quedó funcional, organizado y listo para evaluación.
+
+Estado del proyecto
+El proyecto ya cuenta con:
+Todas las tareas implementadas y conectadas.
+Flujo técnico completo funcionando.
+Uso básico de IA integrado en el proyecto.
+Evidencia reproducible generada por el propio código.
+Logs estructurados en formato JSON.
+Documentación final del proyecto.
+Script principal y estructura organizada.
+
+Flujo técnico final
+El flujo completo del proyecto permite:
+Obtener eventos del sistema.
+Analizar procesos y conexiones de red.
+Consultar reputación de IPs.
+Integrar IA para ordenar resultados o generar texto de apoyo.
+Guardar evidencia y logs.
+Ejecutar todo desde un script principal sin fallos.
+Las tareas trabajan juntas como un pipeline.
+
+Uso de IA
+La IA se usa de forma funcional y documentada para:
+Apoyar en la organización de información.
+Ayudar en la interpretación de los resultados.
+Generar texto de apoyo para la documentación.
+También se dejó una plantilla simple para prompts.
+
+Evidencia reproducible
+Se generaron ejemplos completos con:
+Resultados reales del flujo.
+Salidas de eventos, procesos/red y reputación.
+Logs en formato JSON.
+Carpeta con pruebas y ejecución del proyecto.
+Esta evidencia demuestra que el proyecto está operativo.
+
+Documentación final
+Se dejó documentación clara, incluyendo:
+Explicación del flujo técnico.
+Estado final del proyecto.
+Resumen de los avances.
+Registro de cambios y mejoras realizadas.
+
+Colaboración del equipo
+El repositorio muestra trabajo colaborativo mediante:
+Commits de varios integrantes.
+Ajustes en diferentes módulos.
+Cambios revisados y validados dentro del proyecto.
+
+Cierre
+Con este entregable se concluye el proyecto.
+El repositorio está completo, funcional y contiene todo lo necesario para su evaluación final.
