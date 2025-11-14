@@ -107,3 +107,58 @@ El proyecto ya corre como un flujo casi completo, faltando únicamente los detal
 Para este último entregable se completó todo el proyecto. Ya están integradas todas las tareas, el flujo técnico funciona de inicio a fin y se agregó el uso básico de IA como parte del proceso. También se generó la evidencia reproducible y se dejaron los logs en formato JSON.
 
 El repositorio quedó organizado, funcional y con la documentación final del proyecto. Con esto se cierra formalmente el trabajo del PIA.
+
+Entregable 5 – Repositorio completo y cierre del proyecto
+
+En este último entregable se realizó el cierre completo del proyecto. El repositorio ya está funcional, organizado y con todos los módulos integrados. Todas las tareas del proyecto trabajan en conjunto dentro del flujo técnico principal y se generó la evidencia necesaria para demostrar su funcionamiento.
+
+Repositorio completo
+
+El repositorio contiene todo lo desarrollado durante el proyecto, incluyendo código, ejemplos de ejecución, documentación y el uso básico de IA. La estructura quedó organizada para facilitar la ejecución, revisión y validación de cada parte del proyecto.
+
+Tareas implementadas
+Las tareas principales del sistema ya están integradas:
+Obtención y filtrado de eventos.
+Análisis de procesos y conexiones de red.
+Consulta de reputación de IPs.
+
+Integración básica de IA para apoyar en la interpretación o generación de textos.
+Estas funciones trabajan juntas como un solo flujo.
+
+Scripts y ejecución
+El proyecto cuenta con un flujo completo que puede ejecutarse desde un script principal. El sistema genera sus carpetas de salida, evidencia y registros sin intervención manual.
+
+Evidencia reproducible
+El repositorio ya incluye ejemplos generados por el propio programa:
+Salidas de auditoría.
+Reportes y tablas.
+Carpeta de evidencia con ejemplos.
+Logs en formato JSON.
+Esta evidencia muestra el funcionamiento real del proyecto.
+Logging
+
+El proyecto produce registros estructurados, con información esencial del flujo como:
+Timestamp
+Módulo
+Nivel del evento
+Detalles relevantes
+Esto permite rastrear la ejecución completa y validar que el flujo trabaja de manera consistente.
+
+Uso de IA
+La IA se integró de forma funcional dentro del flujo.
+Se utiliza para apoyar en la organización y explicación de resultados y cuenta con su plantilla de prompt inicial. Su integración quedó documentada.
+
+Documentación final
+El repositorio incluye documentación del proceso, explicaciones del flujo técnico y el resumen del estado final del proyecto. También se documentaron ajustes relevantes hechos durante el desarrollo.
+
+Colaboración del equipo
+El repositorio refleja la participación activa del equipo mediante:
+
+Commits
+
+Cambios constantes
+Aportes en diferentes partes del código
+
+Cierre
+Con este entregable se concluye formalmente el proyecto.
+El repositorio está completo, funcional y contiene todo lo necesario para su evaluación final.
