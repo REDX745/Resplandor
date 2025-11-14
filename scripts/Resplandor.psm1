@@ -9,6 +9,7 @@ param(
     [string]$ClaveAbuse,
     [string]$SalidaBase,
     [switch]$CapturarRAM
+    [string]$ClaveIA
 )
 
 # Asignar parámetros a variables de script para disponibilidad global
@@ -17,6 +18,7 @@ $script:Desde = $Desde
 $script:ClaveAbuse = $ClaveAbuse
 $script:SalidaBase = $SalidaBase
 $script:CapturarRAM = $CapturarRAM
+$script:ClaveIA = $ClaveIA
 
 $ErrorActionPreference = "SilentlyContinue"
 
@@ -297,12 +299,66 @@ function Invoke-RFRamCapture {
         return $false
     }
 }
+# --------------------------- Orquestacion (integracion de IA) ---------------------------
+function Invoke-RFAIEnrichment {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$ApiKey,
+        [Parameter(Mandatory=$true)][string]$PromptPath,
+        [Parameter(Mandatory=$true)][string]$DataToAnalyze,
+        [string]$ApiUrl = "https://api.ia-ejemplo.com/v1/generate"
+    )
 
+    if (-not (Test-Path $PromptPath)) {
+        Write-Host "No se encontró el archivo de prompt en: $PromptPath" -ForegroundColor Red
+        return $null
+    }
+    
+    $promptTemplate = Get-Content -Path $PromptPath -Raw -ErrorAction Stop
+    $finalPrompt = $promptTemplate -replace "{input_data}", $DataToAnalyze
+
+    $maxRetries = 5
+    $initialDelay = 1
+    $headers = @{ "Authorization" = "Bearer $ApiKey"; "Accept" = "application/json" }
+    
+    $body = @{
+        "model" = "gemini-2.5-flash"
+        "messages" = @( @{"role"="user"; "content"="$finalPrompt"} )
+    } | ConvertTo-Json
+
+    for ($i = 0; $i -lt $maxRetries; $i++) {
+        try {
+            Write-Host "Intentando llamada a la API de IA (Intento $($i+1)/$maxRetries)..." -ForegroundColor Cyan
+            
+            $response = Invoke-RestMethod -Method Post -Uri $ApiUrl -Headers $headers -Body $body -ContentType "application/json" -TimeoutSec 20 -ErrorAction Stop
+            
+            return $response.choices[0].message.content
+
+        } catch {
+            $status = 0
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                $status = $_.Exception.Response.StatusCode.Value__
+            }
+            
+            if ($status -eq 429 -or $status -ge 500) {
+                $delay = $initialDelay * [Math]::Pow(2, $i)
+                Write-Host "Error $status. Reintentando en $delay segundos (Backoff exponencial)..." -ForegroundColor Yellow
+                Start-Sleep -Seconds $delay
+            } else {
+                Write-Host "Fallo de API no recuperable (Código $status): $($_.Exception.Message)" -ForegroundColor Red
+                return $null
+            }
+        }
+    }
+
+    Write-Host "Máximo de reintentos alcanzado. La IA no pudo completar la solicitud." -ForegroundColor Red
+    return $null
+}
 # --------------------------- Orquestacion (full run) ---------------------------
 function Invoke-RFFullRun {
     [CmdletBinding()]
     param([datetime]$Desde = (Get-Date).AddDays(-7), [string]$AbuseApiKey, [string]$OutputDir)
-
+    
     $root = New-RFOutputRoot -RootDir $OutputDir
 
     $ev   = Get-RFEventEvidence -Desde $Desde -OutputDir $root -Formats @('CSV','HTML') -OnlySuspicious
@@ -348,14 +404,49 @@ function Invoke-RFFullRun {
     ("  Eventos:   {0}" -f (Join-Path $root 'eventos'))              | Out-File -Append -Encoding UTF8 $sum
     ("  Procesos:  {0}" -f (Join-Path $root 'procesos'))             | Out-File -Append -Encoding UTF8 $sum
     ("  Reputacion:{0}" -f (Join-Path $root 'reputacion'))           | Out-File -Append -Encoding UTF8 $sum
-
+    # ======================== INTEGRACIÓN DE IA (CORREGIDO) ========================
+    $claveAI = $script:ClaveIA
+    $promptPath = Join-Path $PSScriptRoot 'prompts\priorizacion_soc_v1.txt'
+    
+    if (-not $claveAI) {
+        # 1. Verificar si la clave existe en la variable de entorno
+        $claveAI = $env:RESPLANDOR_AI_KEY
+    }
+    
+    if (-not $claveAI) {
+        # 2. Si no se encuentra, la pide interactivamente
+        Write-Host "[INFO] Clave IA no encontrada. Se requerirá para enriquecer el reporte." -ForegroundColor Yellow
+        $claveAI = Read-Host 'Clave de API de IA (Enter para omitir el reporte enriquecido)'
+    }
+    
+    if ($claveAI -and (Test-Path $promptPath)) {
+        Write-Host "[INFO] Generando Resumen Forense enriquecido con IA..." -ForegroundColor Cyan
+        
+        # Obtener el resumen ya generado
+        $summaryContent = Get-Content -Path $sum -Raw
+        
+        # Llamar a la función de IA con retries
+        $enrichedOutput = Invoke-RFAIEnrichment -ApiKey $claveAI -PromptPath $promptPath -DataToAnalyze $summaryContent -ErrorAction SilentlyContinue
+        
+        if ($enrichedOutput) {
+            $iaSummaryPath = Join-Path $root 'Resumen_Forense_IA.txt'
+            $enrichedOutput | Out-File -Encoding UTF8 $iaSummaryPath
+            
+            # Añadir la referencia al resumen general
+            "" | Out-File -Append -Encoding UTF8 $sum
+            "== Reporte de IA ==" | Out-File -Append -Encoding UTF8 $sum
+            ("  Reporte enriquecido: {0}" -f $iaSummaryPath) | Out-File -Append -Encoding UTF8 $sum
+        } else {
+            Write-Host "[WARN] El reporte de IA no pudo generarse correctamente." -ForegroundColor Yellow
+        }
+    }
     [pscustomobject]@{
         OutputFolder = $root
         Eventos      = $ev
         ProcNet      = $pr
         Reputacion   = $rep
         ResumenPath  = $sum
-    }
+        }
 }
 
 # --------------------------------- UI ---------------------------------
