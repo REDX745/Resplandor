@@ -1,0 +1,31 @@
+Entregable 4 – Proyecto casi completo
+
+En esta etapa se consolidó el flujo técnico del proyecto y se preparó la estructura final para la entrega. 
+Se integraron las tareas que ya estaban implementadas y se generó evidencia reproducible en el repositorio.
+
+Flujo técnico consolidado
+Las tareas principales del proyecto ya se ejecutan dentro del mismo flujo. Las salidas se organizan automáticamente en las carpetas correspondientes 
+y el proceso completo puede reproducirse sin cambios adicionales.
+
+Integración funcional
+El flujo ya conecta las partes necesarias del proyecto. Las carpetas de evidencia,
+resultados y logs quedan generadas correctamente en cada ejecución.
+
+Evidencia reproducible
+En la carpeta `/examples` se agregaron archivos resultantes de la ejecución del proyecto,
+incluyendo ejemplos de salidas y pruebas realizadas.
+
+Logging estructurado
+Se generaron logs en formato `.jsonl` o `.log`, con información como timestamp, módulo y detalles de ejecución.
+
+Documentación
+Este archivo (`entregable_4.md`) documenta el avance correspondiente al cuarto entregable. 
+También se actualizó el README del proyecto con la información necesaria para esta etapa.
+
+Estado actual
+* Flujo principal funcionando.
+* Tareas integradas.
+* Evidencia generada.
+* Logs estructurados.
+* Documentación lista.
+El proyecto está preparado para la entrega final.
