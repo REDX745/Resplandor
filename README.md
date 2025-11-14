@@ -103,3 +103,7 @@ Para este cuarto entregable se integró casi todo el flujo técnico del proyecto
 Ya se conectaron las tareas principales (eventos, procesos/red y reputación de IPs), y se agregó la parte de IA que usamos solo para organizar la salida y apoyar en la interpretación del análisis. También se generaron ejemplos reproducibles dentro de /examples y se actualizó el sistema de logs en formato JSON lines.
 
 El proyecto ya corre como un flujo casi completo, faltando únicamente los detalles finales para la entrega. 
+
+Para este último entregable se completó todo el proyecto. Ya están integradas todas las tareas, el flujo técnico funciona de inicio a fin y se agregó el uso básico de IA como parte del proceso. También se generó la evidencia reproducible y se dejaron los logs en formato JSON.
+
+El repositorio quedó organizado, funcional y con la documentación final del proyecto. Con esto se cierra formalmente el trabajo del PIA.
