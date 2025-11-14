@@ -95,3 +95,11 @@ Se agregó un script principal que conecta ambas funciones y genera logs estruct
 El plan de IA se documentó en /docs/ai_plan.md y la plantilla inicial de prompt en /prompts/.
 El proyecto ahora incluye orquestación básica y documentación del avance en /docs/entregable_3.md.
 Se actualizó este README con el estado actual del proyecto.
+
+
+Estado del Proyecto – Entregable 4
+
+Para este cuarto entregable se integró casi todo el flujo técnico del proyecto.
+Ya se conectaron las tareas principales (eventos, procesos/red y reputación de IPs), y se agregó la parte de IA que usamos solo para organizar la salida y apoyar en la interpretación del análisis. También se generaron ejemplos reproducibles dentro de /examples y se actualizó el sistema de logs en formato JSON lines.
+
+El proyecto ya corre como un flujo casi completo, faltando únicamente los detalles finales para la entrega. 
