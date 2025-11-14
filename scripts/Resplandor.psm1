@@ -257,33 +257,43 @@ function Invoke-RFRamCapture {
     [CmdletBinding()]
     param([string]$ToolPath = "C:\Herramientas\winpmem.exe")
 
-    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
-        ).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+    $root = New-RFOutputRoot -RootDir $script:SalidaBase
+    $ramDir = Join-Path $root "memoria"
+    if (-not (Test-Path $ramDir)) { New-Item -ItemType Directory -Path $ramDir -Force | Out-Null }
+    
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
     if (-not $isAdmin) {
-        Write-Host "[WARN] Se requieren privilegios de administrador para capturar RAM." -ForegroundColor Yellow
+        Write-Host "Se requieren privilegios de administrador para capturar RAM." -ForegroundColor Yellow
         return $false
     }
+    
     if (-not (Test-Path $ToolPath)) {
-        Write-Host "[WARN] No se encontro winpmem en: $ToolPath" -ForegroundColor Yellow
-        Write-Host "       Descargalo desde https://github.com/Velocidex/WinPmem y colocalo ahi."
+        Write-Host "No se encontro winpmem en: $ToolPath" -ForegroundColor Yellow
+        Write-Host "Descargalo desde https://github.com/Velocidex/WinPmem y colocalo ahi."
         return $false
     }
-    $forDir = "C:\Forensics"
-    if (-not (Test-Path $forDir)) { New-Item -ItemType Directory -Path $forDir -Force | Out-Null }
-    $ts = Get-Date -Format "yyyyMMdd_HHmmss"
-    $outRaw = Join-Path $forDir ("RAM_Capture_{0}.raw" -f $ts)
 
-    Write-Host "[INFO] Capturando RAM con WinPmem... puede tardar" -ForegroundColor Cyan
+    $hostname = $env:COMPUTERNAME
+    $ts = Get-Date -Format "yyyyMMdd_HHmmss"
+    $outRaw = Join-Path $ramDir ("{0}_RAM_Capture_{1}.raw" -f $hostname, $ts)
+
+    Write-Host "Capturando RAM con WinPmem... puede tardar" -ForegroundColor Cyan
     & $ToolPath -o $outRaw -d
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        Write-Host "WinPmem terminó con código $exitCode. No se generó captura." -ForegroundColor Red
+        return $false
+    }
 
     if (Test-Path $outRaw) {
         $h = Get-FileHash -Path $outRaw -Algorithm SHA256
         $h | Export-Clixml -Path ($outRaw + ".sha256")
-        Write-Host ("[OK] RAM capturada: {0}" -f $outRaw) -ForegroundColor Green
-        Write-Host ("[OK] SHA256: {0}" -f $h.Hash) -ForegroundColor Green
+        Write-Host "RAM capturada: {0}" -f $outRaw -ForegroundColor Green
+        Write-Host "SHA256: {0}" -f $h.Hash -ForegroundColor Green
         return $true
     } else {
-        Write-Host "[WARN] No se genero el archivo de captura." -ForegroundColor Yellow
+        Write-Host "No se genero el archivo de captura." -ForegroundColor Yellow
         return $false
     }
 }
