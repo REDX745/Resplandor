@@ -5,3 +5,5 @@ En clase se discutió la posibilidad de mejorar el flujo del proyecto agregando 
 Se propuso agregar un módulo opcional para validar rutas y nombres de archivos antes del procesamiento, aprovechando lógica que ya existe en el código base. 
 
 Se habló de organizar los módulos del proyecto en subcarpetas según su función, reutilizando la estructura actual sin hacer cambios. Únicamente se registró como una consideración futura.
+
+El equipo sugirió agregar una plantilla adicional de prompt para IA orientada a análisis de texto, usando el mismo formato que ya existe.
